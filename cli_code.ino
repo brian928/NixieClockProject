@@ -61,7 +61,7 @@ void processCLI(String inputString)
      tempString.toCharArray(tempstr,3);
      alarmMinute = atoi(tempstr);
      
-     dsSramWrite(alarmHour, alarmMinute);    
+     dsSramWrite(RAM_ALARM, alarmHour, alarmMinute);    
      Alarm.alarmRepeat(alarmHour,alarmMinute,0, MorningAlarm);
      Serial.print(alarmHour);
      printDigits(alarmMinute);

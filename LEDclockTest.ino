@@ -21,10 +21,11 @@
 #include <DS1307RTC.h>  // a basic DS1307 library that returns time as a time_t
 #include <LiquidTWI.h>
 
-#define RAM_OFFSET 8 
-#define DS1307_CTRL_ID 0x68
+#define DS1307_CTRL_ID 0x68  // ds1307 RTC I2C address
+#define RAM_ALARM 8    // ds1307 memory location for saving alarm time
+#define RAM_BURN  10   // ds1307 memory location for saving burnin time
 
-//map logical ram addresses (0-55) to physical addresses (8-63)
+// map logical ram addresses (0-55) to physical addresses (8-63)
 // Nixie I2C addresses and constants
 #define DIGIT1 0x0D    // tens digit of hours
 #define DIGIT2 0x0C    // single digit of hours
@@ -114,12 +115,12 @@ void setup()  {
   pinMode(functionSwitch, INPUT_PULLUP);   // switch to display/set date & year
 
   // lets get alarm info from RAM
-  dsSramRead(&aH, &aM);
-Serial.print(aH,DEC);
-     Serial.print(" ");
-     Serial.println(aM,DEC);
-     if ((aH == 0) && (aM == 0)) {           // ds1307 has been re-initialized
-     dsSramWrite(alarmHour, alarmMinute); // set the default time
+  dsSramRead(RAM_ALARM, &aH, &aM);
+     // Serial.print(aH,DEC);
+     //Serial.print(" ");
+     //Serial.println(aM,DEC);
+  if ((aH == 0) && (aM == 0)) {           // ds1307 has been re-initialized
+     dsSramWrite(RAM_ALARM, alarmHour, alarmMinute); // set the default time
   } 
   else {
     alarmHour = aH;

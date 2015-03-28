@@ -3,6 +3,7 @@ const int buttonAlarmSet = 10;   // button for alarm setting
 const int buttonTimeSet = 11;    // button for time setting
 const int buttonHourSet = 12;    // button for setting the hour
 const int buttonMinSet = 13;     // button for setting the minutes
+int functionSwitch = 5;          // slide switch to display/set date & year
 */
 
 void update_buttons_state()
@@ -31,46 +32,53 @@ void buttons()
   // HIGH == button released
   // (this is because pullup resistors are used)
   
-  displayMode = mTime; // display the time, it will be changed below if otherwise
-  
-  // Decide if we should set time or alarm:
-  // (this also makes the display show the alarm time)
-  if ((alarm_button_state==LOW) && !(time_button_state==LOW)) // LOW = Set alarm
-  {
-     displayMode = mAlarm;                  // display the alarm time
-     tempHour = alarmHour;
-     tempMinute = alarmMinute;
-     set_the_time(&alarmHour, &alarmMinute);
-     if ((alarmHour != tempHour) || (alarmMinute != tempMinute)) {
-        dsSramWrite(alarmHour, alarmMinute);
-        //alarmID = Alarm.alarmRepeat(alarmHour,alarmMinute,0, MorningAlarm);
-        Alarm.write(alarmID, AlarmHMS(alarmHour,alarmMinute,0));
-        Alarm.enable(alarmID);
-        Serial.print(AlarmHMS(alarmHour,alarmMinute,0));
-        Serial.print(" set alarm ");
-        Serial.print(alarmID,DEC); Serial.print("  ");
-        Serial.print(Alarm.count()); Serial.print("  ");
-        Serial.println(Alarm.read(alarmID));
-     }
-  }
-  else if ((time_button_state==LOW) && !(alarm_button_state==LOW)) // LOW = Set time
-  {
-     displayMode = mTime;                  // display the time  
-     curtime = now();   // store the current time in time variable t       
-     tempHour = hour(curtime);
-     tempMinute = minute(curtime);
-     tempSecond = 0;               // ability to make the second exact
-     tempDay = day(curtime);
-     tempMonth = month(curtime);
-     tempYear = year(curtime);
-     set_the_time(&tempHour, &tempMinute);
+
+  if (function_swt_state == HIGH) {   // setting or displaying alarm & time  
+     // Decide if we should set time or alarm:
+     // (this also makes the display show the alarm time)
+     displayMode = mTime; // display the time, it will be changed below if otherwise
+
+     if ((alarm_button_state==LOW) &&  (time_button_state==HIGH)) // LOW = Set alarm
+     {
+        displayMode = mAlarm;                  // display the alarm time
+        tempHour = alarmHour;
+        tempMinute = alarmMinute;
+        set_the_time(&alarmHour, &alarmMinute);
+        if ((alarmHour != tempHour) || (alarmMinute != tempMinute)) {
+           dsSramWrite(RAM_ALARM, alarmHour, alarmMinute);
+           //alarmID = Alarm.alarmRepeat(alarmHour,alarmMinute,0, MorningAlarm);
+           Alarm.write(alarmID, AlarmHMS(alarmHour,alarmMinute,0));
+           Alarm.enable(alarmID);
+           Serial.print(AlarmHMS(alarmHour,alarmMinute,0));
+           Serial.print(" set alarm ");
+           Serial.print(alarmID,DEC); Serial.print("  ");
+           Serial.print(Alarm.count()); Serial.print("  ");
+           Serial.println(Alarm.read(alarmID));
+        }
+     } /* set alarm */
+     else if ((time_button_state==LOW) && !(alarm_button_state==LOW)) // LOW = Set time
+     {
+        displayMode = mTime;                  // display the time  
+        curtime = now();   // store the current time in time variable t       
+        tempHour = hour(curtime);
+        tempMinute = minute(curtime);
+        tempSecond = 0;               // ability to make the second exact
+        tempDay = day(curtime);
+        tempMonth = month(curtime);
+        tempYear = year(curtime);
+        set_the_time(&tempHour, &tempMinute);
      
-     if ((tempHour != hour(curtime)) || (tempMinute != minute(curtime))) {
-        setTime(tempHour,tempMinute,tempSecond,
-                tempDay,tempMonth,tempYear);  // sets the arduino system time
-        RTC.set(now());                       // sets the RTC clock
-     }
+        if ((tempHour != hour(curtime)) || (tempMinute != minute(curtime))) {
+           setTime(tempHour,tempMinute,tempSecond,
+                   tempDay,tempMonth,tempYear);  // sets the arduino system time
+           RTC.set(now());                       // sets the RTC clock
+        }
+     } /* set time */
   }
+   else {   // setting or displaying alarm & time
+        displayMode = mDate;
+        // Serial.print(" button: display date ");
+   }  
 } // buttons()
 
 void set_the_time(uint8_t *hours_p, uint8_t *minutes_p)
