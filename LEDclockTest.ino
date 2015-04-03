@@ -46,7 +46,7 @@ Modes displayMode, lastMode;
 LiquidTWI lcd(0);            // Initialize our 16x2 lcd display
 byte tube[4]={DIGIT1, DIGIT2, DIGIT3, DIGIT4};  // array of nixie addresses
 byte dimNixieVal = 100;          // initial dimmer value
-byte delayNixieVal = 10;         // initieal delay valu
+byte delayNixieVal = 10;         // initial delay value
 
 String inputString = "";         // a string to hold incoming data
 boolean stringComplete = false;  // whether the string is complete
