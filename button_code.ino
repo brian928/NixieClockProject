@@ -26,7 +26,8 @@ uint8_t monthDays[]={31,28,31,30,31,30,31,31,30,31,30,31}; // API starts months 
 void buttons()
 {
      time_t curtime;   // store the current time in time variable t       
-     uint8_t tempHour, tempMinute, tempSecond, tempDay, tempMonth, tempYear;
+     uint8_t tempHour, tempMinute, tempSecond, tempDay, tempMonth;
+     int tempYear;
      
   // LOW == button pressed
   // HIGH == button released
@@ -189,7 +190,7 @@ void set_the_date(uint8_t *month_p, uint8_t *day_p)
 } /* set the month and day */
 
 
-void set_the_year(uint8_t *year_p)
+void set_the_year(int *year_p)
 {
   // If "hour" button is pressed, increase the year:
   if(sethour_button_state==LOW && first_time_hour) // only increase the hours once
