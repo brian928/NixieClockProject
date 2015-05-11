@@ -19,10 +19,10 @@
 #include <TimeAlarms.h>
 #include <Wire.h>  
 #include <DS1307RTC.h>  // a basic DS1307 library that returns time as a time_t
-#include <LiquidTWI.h>
 
 #define DS1307_CTRL_ID 0x68  // ds1307 RTC I2C address
 #define RAM_ALARM 8    // ds1307 memory location for saving alarm time
+#define RAM_BURNALARM 10
 #define RAM_BURN  10   // ds1307 memory location for saving burnin time
 
 // map logical ram addresses (0-55) to physical addresses (8-63)
@@ -43,7 +43,6 @@
 enum Modes {mTime, mAlarm, mDate, mYear, mBurnIn};
 Modes displayMode, lastMode;
 
-LiquidTWI lcd(0);            // Initialize our 16x2 lcd display
 byte tube[4]={DIGIT1, DIGIT2, DIGIT3, DIGIT4};  // array of nixie addresses
 byte dimNixieVal = 100;          // initial dimmer value
 byte delayNixieVal = 10;         // initial delay value
@@ -51,9 +50,9 @@ byte delayNixieVal = 10;         // initial delay value
 String inputString = "";         // a string to hold incoming data
 boolean stringComplete = false;  // whether the string is complete
   
-int alarmLED = 7;                // our alarm for devel purposes
+int alarmLED = 3;                // our alarm for devel purposes
 int alarmSwitch = 8;             // slide switch pin
-const int buttonSnooze = 9;      // snooze timer pin
+const int buttonSnooze = 7;      // snooze timer pin
 boolean alarmActivated = false;  // is the alarm on?
 boolean milTime = false;         // display 12 or 24 hour format, 12 hr = false
 int ampmLED = 6;                 // Turn LED on for PM
@@ -62,7 +61,7 @@ int ampmLED = 6;                 // Turn LED on for PM
 const int buttonAlarmSet = 10;   // button for alarm setting
 const int buttonTimeSet = 11;    // button for time setting
 const int buttonHourSet = 12;    // button for setting the hour
-const int buttonMinSet = 13;     // button for setting the minutes
+const int buttonMinSet = 9;     // button for setting the minutes
 // button and switch states
 int alarm_button_state;
 int time_button_state; 
@@ -85,8 +84,8 @@ int timerSnooze = 15;             // 15 seconds for our snooze timer
   // Set a burn in time at 12 noon for 300 seconds (5 minutes)
 int burnHour = 12;
 int burnMinute = 0;
-int burnTime = 300;
-
+int burnTime = 300;  // 5 minutes
+uint8_t burnAlarmID;
 
 void setup()  {
   Serial.begin(9600);
@@ -99,9 +98,6 @@ void setup()  {
   displayMode = mTime;        // start off displaying the time     
   lastMode = mTime;
   inputString.reserve(80);    // reserve 80 bytes for the inputString:
-  
-  lcd.begin(16, 2);           // set up the LCD's number of rows and columns:
-  lcd.setBacklight(HIGH);     // Turn the lcd backlight off or on
     
   pinMode(alarmLED, OUTPUT);  // initialize the digital pin as an output.
   pinMode(alarmSwitch, INPUT_PULLUP);  // alarm slide switch
@@ -138,11 +134,10 @@ void setup()  {
      Serial.print(" ");
      Serial.println(alarmflag,DEC);
 */
-  // alarmID = Alarm.alarmRepeat(alarmHour,alarmMinute,0, MorningAlarm);  // set alarm for default time
-  alarmID = Alarm.alarmRepeat(22,25,0, MorningAlarm);  // set alarm for default time
-  Alarm.alarmRepeat(burnHour,burnMinute,0, burnAlarm);  // set alarm for Burn In
-     Serial.print(alarmID,DEC);
-     Serial.println(Alarm.read(alarmID));
+  alarmID = Alarm.alarmRepeat(alarmHour,alarmMinute,0, MorningAlarm);  // set alarm for default time
+  burnAlarmID = Alarm.alarmRepeat(burnHour,burnMinute,0, burnAlarm);  // set alarm for Burn In
+     // Serial.print(alarmID,DEC);
+     // Serial.println(Alarm.read(alarmID));
 }  /* setup */
 
 void loop()
@@ -150,19 +145,16 @@ void loop()
    switch (displayMode)
    {
       case mTime:
-           // digitalClockDisplay();
-           lcdTimeDisplay(hour(), minute());
+           NixieTimeDisplay(hour(), minute());
            break;            
       case mAlarm:
-           lcdTimeDisplay(alarmHour, alarmMinute);
+           NixieTimeDisplay(alarmHour, alarmMinute);
            break;
       case mDate:
-           // NixieDateDisplay();
-           lcdDateDisplay();
+           NixieDateDisplay();
            break;
       case mYear:
-           // NixieYearDisplay();
-           lcdYearDisplay();
+           NixieYearDisplay();
            break;
       case mBurnIn:
            break;
@@ -172,7 +164,6 @@ void loop()
            break;
     }
     
-  lcdClockDisplay();
   Alarm.delay(100);
   update_buttons_state();  // see if any buttons have been pushed
   buttons();               // go set the clock if pushing buttons
@@ -192,35 +183,13 @@ void loop()
    
 }  /* loop */
 
-/*************************************************************************
- * Alarm and sleep timer functions
- *************************************************************************
-*/
-void MorningAlarm(){
-  Serial.println("Morning Alarm: - WAKE UP");    
-  alarmActivated = true;
-}
-void Snooze()  {
-  Serial.println("Snooze alarm");
-  alarmActivated = true;  
-}
 
-void burnAlarm(){
-  Serial.println("Activated Burn in function");    
-  // burnInNixie(BURNON);
-  Alarm.timerOnce(burnTime, burnTimer);  // set the burn in timer
-}
-void burnTimer()  {
-  Serial.println("Burn In timer expired");
-  // burnInNixie(BURNOFF);         // turn it off  
-} 
 /******************************************************************
- * print the time to the lcd
+ * print the time to the nixies
  ******************************************************************
  */
- void lcdTimeDisplay(int hours, int minutes){
+ void NixieTimeDisplay(int hours, int minutes){
   
-   lcd.setCursor(12, 1);   // set the cursor to column 12, line 1
    if (hours >= 12)
       digitalWrite(ampmLED, LOW);
    else     
@@ -233,54 +202,51 @@ void burnTimer()  {
         hours = hours - 12 ;
    } 
 
-  // 1st digit
-  if (hours < 10)
-     lcd.print(' ');  // leading space
+  // 1st digit 
+    if (hours < 10)
+     writeNixieDigit(DIGIT1, BLANK);  // leading space
   else
-     lcd.print(hours/10);
-
+     writeNixieDigit(DIGIT1, (hours/10));
   // 2nd digit
-  lcd.print((hours % 10));
+  writeNixieDigit(DIGIT2, (hours % 10));
 
   // write the minutes
   // 1st digit
   if (minutes < 10)
-     lcd.print('0');  // leading zero
+     writeNixieDigit(DIGIT3, 0);  // leading zero
   else
-     lcd.print((minutes/10));
+     writeNixieDigit(DIGIT3, (minutes/10));
   // 2nd digit
-  lcd.print((minutes % 10));
+  writeNixieDigit(DIGIT4, (minutes % 10));
 }
 /************************************************************************
  * print the date to the nixies
  * get the month and the days
  *************************************************************************
 */
-void lcdDateDisplay(){
+void NixieDateDisplay(){
 
   int temp;
 
   temp = month();
-  lcd.setCursor(12, 1);   // set the cursor to column 12, line 1    
   // write the month
   // 1st digit
   if (temp < 10)
-     lcd.print(' ');  // leading space
+     writeNixieDigit(DIGIT1, BLANK);  // leading space
   else
-     lcd.print(temp/10);
-
+     writeNixieDigit(DIGIT1, (temp/10));
   // 2nd digit
-  lcd.print((temp % 10));
+  writeNixieDigit(DIGIT2, (temp % 10));
 
   // write the day
   // 1st digit
   temp = day();  
   if (temp < 10)
-     lcd.print(' ');  // leading space
+     writeNixieDigit(DIGIT3, BLANK);  // leading space
   else
-     lcd.print(temp/10);
+     writeNixieDigit(DIGIT3, (temp/10));
  // 2nd digit
-  lcd.print((temp % 10));
+  writeNixieDigit(DIGIT4, (temp % 10));
 }
 
 /************************************************************************
@@ -288,77 +254,130 @@ void lcdDateDisplay(){
  * 
  *************************************************************************
 */
-void lcdYearDisplay(){
-
+void NixieYearDisplay(){
+/* byte tube[4]={0x0D, 0x0C, 0x0B, 0x0A}; */
   int temp;
 
   temp = year();
-  lcd.setCursor(12, 1);   // set the cursor to column 12, line 1 
+
   // 1st digit
-  lcd.print( (temp/1000));
+  writeNixieDigit(DIGIT1, (temp/1000));
 
   // 2nd digit
   temp = temp % 1000;
-  lcd.print((temp/100));
+  writeNixieDigit(DIGIT2, (temp/100));
 
   // 3rd digit
   temp = temp % 100;  
-  lcd.print((temp/10));
+  writeNixieDigit(DIGIT3, (temp/10));
 
  // 4th digit
-  lcd.print((temp % 10));
+  writeNixieDigit(DIGIT4, (temp % 10));
  
 }
-
-/******************************************************************
- * print the time to the lcd
- ******************************************************************
+/*
+ * Write the number to the given nixie
+ * Look at taylor datasheet for setting the numbers
+ * spare 1 = 0x0400 -> 10
+ * spare 2 = 0x0800 -> 11
+ * blank   = 0x1000 -> 12
  */
-void lcdClockDisplay(){
+ 
+void writeNixieDigit(byte address, byte number) {
 
-  int temp;
-  temp = hour();  
-  lcd.setCursor(0, 0);   // set the cursor to column 0, line 0
-   if (milTime == false) {
-      if (temp == 0) 
-         temp = 12; // 12 midnight
-      else if( temp  > 12)
-         temp = temp - 12 ;
-   }
-     
-  if (temp < 10)
-     lcd.print(' ');  // leading space
-  lcd.print(temp);
-  lcd.print(':');
-  if (minute() < 10)
-     lcd.print('0');  // leading zero
-  lcd.print(minute());
-  lcd.print(':');
-  if (second() < 10)
-     lcd.print('0');  // leading zero
-  lcd.print(second());
-  
-  if (milTime == true) {
-    lcd.print("   ");  // make sure display is clear incase of a flag change
-  }
-  else {
-    if (isAM() == true)
-       lcd.print(" AM ");
-    else
-       lcd.print(" PM ");
-  }
+  Wire.beginTransmission(address);
+  Wire.write(0x00); //register address=Character
+  Wire.write(number);
+  Wire.endTransmission();
 
-
-  lcd.setCursor(0, 1);   // set the cursor to column 0, line 1
-  lcd.print(month());
-  lcd.print("/");
-  lcd.print(day());
-  lcd.print("/");
-  lcd.print(year());
-  lcd.print(" "); 
 }
 
-// digital clock display of the time
+/*
+ * DimValue needs to be between 0 and 100
+ * 100 = 100% bright
+ *   0 = 0%
+*/
+void dimNixie(byte dimValue) {
+  int i;
+  if (dimValue > 100)
+      dimValue = 100;
+  for (i= 0; i < 4; i++) {   // dim all the nixies
+     Wire.beginTransmission(tube[i]);
+     Wire.write(0x0B); //register address=Dimmer
+     Wire.write(dimValue);
+     Wire.endTransmission();
+  }
+}
+
+/*
+ * Burn In routine
+ * 1 = on
+ * 2 = off
+ *  
+*/
+void burnInNixie(byte stateValue) {
+  int i;
+    Serial.print("BURNIN = ");
+    Serial.println(stateValue);
+  if (stateValue == 0x01) {  // Are we turning this on?
+    lastMode = displayMode;  // Save the display mode
+    displayMode = mBurnIn;
+    dimNixie(100);           // 100 % bright
+  }
+  else {                      // we're done burning so put things back
+     displayMode = lastMode;
+     dimNixie(dimNixieVal);
+  }
+
+  for (i= 0; i < 4; i++) {    
+     Wire.beginTransmission(tube[i]);
+     Wire.write(0x0D); //register address= Burn in
+     Wire.write(stateValue);
+     Wire.endTransmission();
+  }
+
+}
+
+/*
+ * Flashing routine
+ * 0x03 = on
+ * 0x04 = off
+ *  
+*/
+void flashNixie(byte stateValue) {
+  int i;
+    Serial.print("FLASHING = ");
+    Serial.println(stateValue);
+
+  for (i= 0; i < 4; i++) {    
+     Wire.beginTransmission(tube[i]);
+     Wire.write(0x0D); //register address= Burn in and flashing
+     Wire.write(stateValue);
+     Wire.endTransmission();
+  }
+
+}
+/*
+ * delay routine for burnin and flashing
+ * delay in 10ms from 10ms to 2.550s
+ * values 0x01 to 0xFF
+ *  
+*/
+void delayNixie(byte stateValue) {
+  int i;
+    Serial.print("DELAY = ");
+    Serial.println(stateValue);
+
+  for (i= 0; i < 4; i++) {    
+     Wire.beginTransmission(tube[i]);
+     Wire.write(0x0C); //register address= delay time for burnin and flashing
+     Wire.write(stateValue);
+     Wire.endTransmission();
+  }
+
+}
+
+// Serial digital clock display of the time
 void digitalClockDisplay(){
   Serial.print(hour());
   printDigits(minute());

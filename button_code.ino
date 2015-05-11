@@ -34,7 +34,7 @@ void buttons()
   // (this is because pullup resistors are used)
   
 
-  if (function_swt_state == HIGH) {   // setting or displaying alarm & time  
+  if (function_swt_state == LOW) {   // setting or displaying alarm & time  
      // Decide if we should set time or alarm:
      // (this also makes the display show the alarm time)
      displayMode = mTime; // display the time, it will be changed below if otherwise

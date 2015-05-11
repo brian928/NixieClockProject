@@ -1,3 +1,30 @@
+/*************************************************************************
+ * Alarm and sleep timer functions
+ *************************************************************************
+*/
+void MorningAlarm(){
+  Serial.println("Morning Alarm: - WAKE UP");    
+  alarmActivated = true;
+}
+void Snooze()  {
+  Serial.println("Snooze alarm");
+  alarmActivated = true;  
+}
+
+void burnAlarm(){
+  Serial.println("Activated Burn in function");    
+  burnInNixie(BURNON);
+  Alarm.timerOnce(burnTime, burnTimer);  // set the burn in timer
+}
+void burnTimer()  {
+  Serial.println("Burn In timer expired");
+  burnInNixie(BURNOFF);         // turn it off  
+} 
+
+/*************************************************************************
+ * 
+ *************************************************************************
+*/
 void alarm()
 {
   //
@@ -8,10 +35,13 @@ void alarm()
          digitalWrite(alarmLED, HIGH);       // Sound the alarm
          alarmActivated = false;
       }
-      if (alarm_snooze_state == LOW) {         // check for snoozin'
-          digitalWrite(alarmLED, LOW);         // Turn the alarm off
-          Alarm.timerOnce(timerSnooze, Snooze);  // set the snooze timer
-      }
+      if (alarm_snooze_state == HIGH) {         // check for snoozin'(swt is Normally On
+           digitalWrite(alarmLED, LOW);         // Turn the alarm off
+           alarmActivated = false;
+           int snoozeId = Alarm.timerOnce(timerSnooze, Snooze);  // set the snooze timer
+           Serial.print("snooze alarm: ");
+           Serial.println(Alarm.read(snoozeId));
+         }
    }   
    else {
        digitalWrite(alarmLED, LOW);          // Turn the alarm off
