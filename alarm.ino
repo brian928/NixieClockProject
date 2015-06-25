@@ -3,20 +3,24 @@
  *************************************************************************
 */
 void MorningAlarm(){
+  digitalClockDisplay();
   Serial.println("Morning Alarm: - WAKE UP");    
   alarmActivated = true;
 }
 void Snooze()  {
+  digitalClockDisplay();
   Serial.println("Snooze alarm");
   alarmActivated = true;  
 }
 
 void burnAlarm(){
+  digitalClockDisplay();
   Serial.println("Activated Burn in function");    
   burnInNixie(BURNON);
   Alarm.timerOnce(burnTime, burnTimer);  // set the burn in timer
 }
 void burnTimer()  {
+  digitalClockDisplay();
   Serial.println("Burn In timer expired");
   burnInNixie(BURNOFF);         // turn it off  
 } 
